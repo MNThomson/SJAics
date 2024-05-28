@@ -1,0 +1,10 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "sjaics"
+main = "src/index.ts"
+compatibility_date = "2024-05-24"
+
+[triggers]
+crons = ["0 8 * * *"] # Every day at 8AM UTC (1AM PDT)
+
+[vars]
+REPO_URL = "https://github.com/MNThomson/SJAics"
