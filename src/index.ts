@@ -50,6 +50,12 @@ function ampm(str: string): string {
     return `${(+hours + (notation.toLowerCase() === "am" ? 0 : 12)).toString().padStart(2, "0")}:${(+mins).toString().padStart(2, "0")}`;
 }
 
+function tzOffset(): number {
+    const str = new Date().toLocaleString('en', { timeZone: "America/Vancouver", timeZoneName: 'longOffset' });
+    const [_, h] = str.match(/([+-]\d+):\d+$/) || [, '0'];
+    return +h;
+}
+
 async function getNodeDetails(nodeId: number): Promise<NodeDetails> {
     let resp = await fetch(`${ENV.URL}/node/${nodeId}`, {
         headers: { cookie: ENV.COOKIE, contact: ENV.REPO_URL },
@@ -78,7 +84,7 @@ async function getNodeDetails(nodeId: number): Promise<NodeDetails> {
             ?.text!.match(/\d+:\d+AM|\d+:\d+PM/)![0]!,
     );
     let meet_time = new Date(shifts[0].start_time.getTime());
-    meet_time.setHours(+meet_time_str.split(":")[0]);
+    meet_time.setHours(+meet_time_str.split(":")[0] - tzOffset());
     meet_time.setMinutes(+meet_time_str.split(":")[1]);
 
     return {
