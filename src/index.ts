@@ -2,8 +2,11 @@ import { parse } from "node-html-parser";
 import ical, { ICalCalendar } from "ical-generator";
 
 export interface Env {
+    R2: R2Bucket;
+
     COOKIE: string;
     URL: string;
+    APIKEY: string;
     REPO_URL: string;
 }
 
@@ -106,10 +109,24 @@ function createIcs(nodes: NodeDetails[]): ICalCalendar {
 }
 
 export default {
-    async scheduled(
-        // event: ScheduledEvent,
+    async fetch(
+        request: Request,
         env: Env,
-        // ctx: ExecutionContext,
+        ctx: ExecutionContext
+    ) {
+        switch (new URL(request.url).pathname) {
+            case `/${env.APIKEY}/duties.ics`:
+                let ics = await env.R2.get('duties.ics');
+                return new Response(await ics?.text(), { headers: { "content-type": "text/calendar; charset=utf-8" } });
+            default:
+                return new Response("", { status: 401 })
+        }
+    },
+
+    async scheduled(
+        event: ScheduledEvent,
+        env: Env,
+        ctx: ExecutionContext,
     ): Promise<void> {
         console.log("***************************************************");
         ENV = env;
@@ -142,5 +159,6 @@ export default {
 
         let c = createIcs(events);
         console.log(c.toString());
+        await env.R2.put('duties.ics', c.toString())
     },
 };
