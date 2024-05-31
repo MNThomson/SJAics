@@ -8,11 +8,13 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240512.0",
+    "@types/luxon": "^3.4.2",
     "typescript": "^5.4",
     "wrangler": "^3.0.0"
   },
   "dependencies": {
     "ical-generator": "^7.1.0",
+    "luxon": "^3.4.4",
     "node-html-parser": "^6.1.13"
   }
 }

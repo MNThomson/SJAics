@@ -1,5 +1,10 @@
 import { parse } from "node-html-parser";
 import ical, { ICalCalendar } from "ical-generator";
+import { DateTime, Settings } from "luxon"
+import { Valid } from "luxon/src/_util";
+
+Settings.throwOnInvalid = true;
+Settings.defaultZone = "America/Vancouver";
 
 export interface Env {
     R2: R2Bucket;
@@ -34,26 +39,20 @@ async function getCalNodeIds(yearMonth: String): Promise<number[]> {
 }
 
 type Shift = {
-    start_time: Date;
-    end_time: Date;
+    start_time: DateTime<Valid>;
+    end_time: DateTime<Valid>;
 };
 
 type NodeDetails = {
     id: number;
     title: string;
-    meet_time: Date;
+    meet_time: DateTime<Valid>;
     shifts: Shift[];
 };
 
 function ampm(str: string): string {
     const [_, hours, mins, notation] = str.match(/(\d+):(\d+)(\w+)/)!;
     return `${(+hours + (notation.toLowerCase() === "am" ? 0 : 12)).toString().padStart(2, "0")}:${(+mins).toString().padStart(2, "0")}`;
-}
-
-function tzOffset(): number {
-    const str = new Date().toLocaleString('en', { timeZone: "America/Vancouver", timeZoneName: 'longOffset' });
-    const [_, h] = str.match(/([+-]\d+):\d+$/) || [, '0'];
-    return +h;
 }
 
 async function getNodeDetails(nodeId: number): Promise<NodeDetails> {
@@ -68,24 +67,19 @@ async function getNodeDetails(nodeId: number): Promise<NodeDetails> {
         .querySelectorAll("table > caption > a > .date-display-single")
         .map((shiftel) => {
             const shift = shiftel.text.trim();
-            const [, dateStr, startTimeStr, endTimeStr] = shift.match(
-                /\w+, (\w+ \d+, \d+) - (\d+:\d+\w{2}) - (\d+:\d+\w{2})/,
+            const [, dateStr, startTimeStr, startTimeMeridiem, endTimeStr, endTimeMeridiem] = shift.match(
+                /\w+, (\w+ \d+, \d+) - (\d+:\d+)(\w{2}) - (\d+:\d+)(\w{2})/,
             )!;
             return {
-                // TODO: Remove the hardcoded "PDT" and make it dynamic
-                start_time: new Date(dateStr + " " + ampm(startTimeStr) + " PDT"),
-                end_time: new Date(dateStr + " " + ampm(endTimeStr) + " PDT"),
+                start_time: DateTime.fromFormat(`${dateStr}, ${startTimeStr} ${startTimeMeridiem.toUpperCase()}`, "DDD, t") as DateTime<Valid>,
+                end_time: DateTime.fromFormat(`${dateStr}, ${endTimeStr} ${endTimeMeridiem.toUpperCase()}`, "DDD, t") as DateTime<Valid>,
             };
         });
 
-    const meet_time_str = ampm(
-        root
-            .querySelector(".views-field-field-mtg-time-value > span")
-            ?.text!.match(/\d+:\d+AM|\d+:\d+PM/)![0]!,
-    );
-    let meet_time = new Date(shifts[0].start_time.getTime());
-    meet_time.setHours(+meet_time_str.split(":")[0] - tzOffset());
-    meet_time.setMinutes(+meet_time_str.split(":")[1]);
+    const [, meet_time_hours, meet_time_meridiem] = root
+        .querySelector(".views-field-field-mtg-time-value > span")
+        ?.text!.match(/(\d+:\d+)(\w{2})/)!;
+    let meet_time = DateTime.fromFormat(`${shifts[0].start_time.toFormat("DD")}, ${meet_time_hours} ${meet_time_meridiem.toUpperCase()}`, "ff") as DateTime<Valid>
 
     return {
         id: nodeId,
