@@ -98,6 +98,10 @@ export default {
                 events.push(await getNodeDetails(nodeId));
             } catch (error) {
                 console.error(`Could not get node details for ${nodeId}\n${error.stack}`);
+                if (error.message.includes("Too many subrequests")) {
+                    console.error("Stopping to get duties due to subrequest limit")
+                    break
+                }
             }
         }
 
