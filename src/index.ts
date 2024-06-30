@@ -50,11 +50,6 @@ type NodeDetails = {
     shifts: Shift[];
 };
 
-function ampm(str: string): string {
-    const [_, hours, mins, notation] = str.match(/(\d+):(\d+)(\w+)/)!;
-    return `${(+hours + (notation.toLowerCase() === "am" ? 0 : 12)).toString().padStart(2, "0")}:${(+mins).toString().padStart(2, "0")}`;
-}
-
 async function getNodeDetails(nodeId: number): Promise<NodeDetails> {
     let resp = await fetch(`${ENV.URL}/node/${nodeId}`, {
         headers: { cookie: ENV.COOKIE, contact: ENV.REPO_URL },
