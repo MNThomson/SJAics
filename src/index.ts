@@ -87,11 +87,9 @@ export default {
         nextMonth.setMonth(nextMonth.getMonth() + 1);
         nodes.push(...(await getCalNodeIds(nextMonth.toISOString().slice(0, 7))));
 
-        /*
-            let thirdMonth = new Date()
-            thirdMonth.setMonth(thirdMonth.getMonth() + 2)
-            nodeIds.push(...(await getCalNodeIds(thirdMonth.toISOString().slice(0, 7))))
-        */
+        let thirdMonth = new Date()
+        thirdMonth.setMonth(thirdMonth.getMonth() + 2)
+        nodes.push(...(await getCalNodeIds(thirdMonth.toISOString().slice(0, 7))))
 
         let events: NodeDetails[] = [];
         for (const node of nodes) {
