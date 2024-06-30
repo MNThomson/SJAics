@@ -1,10 +1,7 @@
 import { parse } from "node-html-parser";
 import ical, { ICalCalendar } from "ical-generator";
-import { DateTime, Settings } from "luxon"
-import { Valid } from "luxon/src/_util";
 
-Settings.throwOnInvalid = true;
-Settings.defaultZone = "America/Vancouver";
+import { NodeDetails, getDuties, getDutyDetails } from "./sjaparser";
 
 export interface Env {
     R2: R2Bucket;
@@ -21,34 +18,8 @@ async function getCalNodeIds(yearMonth: String): Promise<number[]> {
     let resp = await fetch(`${ENV.URL}/calendar/${yearMonth}`);
     const root = parse(await resp.text());
 
-    const nodeIds: number[] = [];
-    const calEntries = root.querySelectorAll(
-        "div.monthview > div.contents > #node-title > a",
-    );
-    for (const e of calEntries) {
-        // Skip non-duties
-        if (!e.parentNode.parentNode.parentNode.innerHTML.includes("Duty"))
-            continue;
-
-        const nodeId = +e.getAttribute("href")!.replace("/node/", "");
-        // const eventName = decodeURI(e.innerText);
-        nodeIds.push(nodeId);
-    }
-
-    return nodeIds;
+    return getDuties(root);
 }
-
-type Shift = {
-    start_time: DateTime<Valid>;
-    end_time: DateTime<Valid>;
-};
-
-type NodeDetails = {
-    id: number;
-    title: string;
-    meet_time: DateTime<Valid>;
-    shifts: Shift[];
-};
 
 async function getNodeDetails(nodeId: number): Promise<NodeDetails> {
     let resp = await fetch(`${ENV.URL}/node/${nodeId}`, {
@@ -56,32 +27,7 @@ async function getNodeDetails(nodeId: number): Promise<NodeDetails> {
     });
     const root = parse(await resp.text());
 
-    const dutyName = root.querySelector("#content-header > h1")?.text!;
-
-    const shifts: Shift[] = root
-        .querySelectorAll("table > caption > a > .date-display-single")
-        .map((shiftel) => {
-            const shift = shiftel.text.trim();
-            const [, dateStr, startTimeStr, startTimeMeridiem, endTimeStr, endTimeMeridiem] = shift.match(
-                /\w+, (\w+ \d+, \d+) - (\d+:\d+)(\w{2}) - (\d+:\d+)(\w{2})/,
-            )!;
-            return {
-                start_time: DateTime.fromFormat(`${dateStr}, ${startTimeStr} ${startTimeMeridiem.toUpperCase()}`, "DDD, t") as DateTime<Valid>,
-                end_time: DateTime.fromFormat(`${dateStr}, ${endTimeStr} ${endTimeMeridiem.toUpperCase()}`, "DDD, t") as DateTime<Valid>,
-            };
-        });
-
-    const [, meet_time_hours, meet_time_meridiem] = root
-        .querySelector(".views-field-field-mtg-time-value > span")
-        ?.text!.match(/(\d+:\d+)(\w{2})/)!;
-    let meet_time = DateTime.fromFormat(`${shifts[0].start_time.toFormat("DD")}, ${meet_time_hours} ${meet_time_meridiem.toUpperCase()}`, "ff") as DateTime<Valid>
-
-    return {
-        id: nodeId,
-        title: dutyName,
-        meet_time: meet_time,
-        shifts: shifts,
-    };
+    return getDutyDetails(root, nodeId);
 }
 
 function createIcs(nodes: NodeDetails[]): ICalCalendar {
@@ -109,12 +55,20 @@ export default {
         env: Env,
         ctx: ExecutionContext
     ) {
-        switch (new URL(request.url).pathname) {
-            case `/${env.APIKEY}/duties.ics`:
+        let path = new URL(request.url).pathname
+        if (!path.startsWith(`/${env.APIKEY}/`))
+            return new Response("", { status: 401 });
+        path = path.slice(env.APIKEY.length + 1);
+
+        switch (path) {
+            case "/duties.ics":
                 let ics = await env.R2.get('duties.ics');
                 return new Response(await ics?.text(), { headers: { "content-type": "text/calendar; charset=utf-8" } });
+            case "/reindex":
+                await this.scheduled(null, env, null);
+                return new Response("Reindex succesful");
             default:
-                return new Response("", { status: 401 })
+                return new Response("", { status: 404 })
         }
     },
 
@@ -138,18 +92,15 @@ export default {
             nodeIds.push(...(await getCalNodeIds(thirdMonth.toISOString().slice(0, 7))))
         */
 
-        let events = (
-            await Promise.all(
-                nodeIds.map(async (nodeId) => {
-                    try {
-                        return await getNodeDetails(nodeId);
-                    } catch (error) {
-                        console.error(error);
-                        return Promise.resolve(null);
-                    }
-                }),
-            )
-        ).filter((e): e is NodeDetails => e !== null);
+        let events: NodeDetails[] = [];
+        for (const nodeId of nodeIds) {
+            try {
+                events.push(await getNodeDetails(nodeId));
+            } catch (error) {
+                console.error(`Could not get node details for ${nodeId}\n${error.stack}`);
+            }
+        }
+
         console.log(events);
 
         let c = createIcs(events);
