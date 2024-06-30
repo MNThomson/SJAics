@@ -35,12 +35,19 @@ function createIcs(nodes: NodeDetails[]): ICalCalendar {
     const calendar = ical({ name: "SJA Duties", ttl: 3600 });
     nodes.map((event) => {
         try {
+            const shiftDetails = "= Shifts\n" + event.shifts.map(e => `
+== ${e.start_time.toFormat("T")} - ${e.end_time.toFormat("T")}
+            `.trim()).join("\n\n");
+            const description = `
+${shiftDetails}
+            `.trim()
             calendar.createEvent({
                 summary: event.title, // TODO: Add num signed up users to end
                 start: event.meet_time,
                 end: event.shifts[event.shifts.length - 1].end_time,
                 url: `${ENV.URL}/node/${event.id}`,
                 // TODO: add description (shifts, signed up users), location
+                description,
             });
         } catch (error) {
             console.error(error);
