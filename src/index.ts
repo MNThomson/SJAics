@@ -65,6 +65,9 @@ export default {
             case "/duties.ics":
                 let ics = await env.R2.get('duties.ics');
                 return new Response(await ics?.text(), { headers: { "content-type": "text/calendar; charset=utf-8" } });
+            case "/dev.ics":
+                let dics = await env.R2.get('dev.ics');
+                return new Response(await dics?.text(), { headers: { "content-type": "text/calendar; charset=utf-8" } });
             case "/reindex":
                 await this.scheduled(null, env, null);
                 return new Response("Reindex succesful");
