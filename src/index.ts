@@ -1,7 +1,8 @@
 import { parse } from "node-html-parser";
 import ical, { ICalCalendar } from "ical-generator";
 
-import { NodeDetails, getDuties, getDutyDetails } from "./sjaparser";
+import { BasicNode, NodeDetails, getDuties, getDutyDetails } from "./sjaparser";
+import { DateTime } from "luxon";
 
 export interface Env {
     R2: R2Bucket;
@@ -14,7 +15,7 @@ export interface Env {
 
 let ENV: Env;
 
-async function getCalNodeIds(yearMonth: String): Promise<number[]> {
+async function getCalNodeIds(yearMonth: String): Promise<BasicNode[]> {
     let resp = await fetch(`${ENV.URL}/calendar/${yearMonth}`);
     const root = parse(await resp.text());
 
@@ -80,11 +81,11 @@ export default {
         console.log("***************************************************");
         ENV = env;
 
-        let nodeIds = await getCalNodeIds("");
+        let nodes = await getCalNodeIds("");
 
         let nextMonth = new Date();
         nextMonth.setMonth(nextMonth.getMonth() + 1);
-        nodeIds.push(...(await getCalNodeIds(nextMonth.toISOString().slice(0, 7))));
+        nodes.push(...(await getCalNodeIds(nextMonth.toISOString().slice(0, 7))));
 
         /*
             let thirdMonth = new Date()
@@ -93,11 +94,14 @@ export default {
         */
 
         let events: NodeDetails[] = [];
-        for (const nodeId of nodeIds) {
+        for (const node of nodes) {
+            // Skip all events that happened in the past, wastes less subrequests
+            if (node.date <= DateTime.now().startOf('day').minus({ days: 8 })) continue;
+
             try {
-                events.push(await getNodeDetails(nodeId));
+                events.push(await getNodeDetails(node.id));
             } catch (error) {
-                console.error(`Could not get node details for ${nodeId}\n${error.stack}`);
+                console.error(`Could not get node details for ${node}\n${error.stack}`);
                 if (error.message.includes("Too many subrequests")) {
                     console.error("Stopping to get duties due to subrequest limit")
                     break

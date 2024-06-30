@@ -18,8 +18,14 @@ export type NodeDetails = {
     shifts: Shift[];
 };
 
-export async function getDuties(root: HTMLElement): Promise<number[]> {
-    const nodeIds: number[] = [];
+export type BasicNode = {
+    id: number;
+    title: string;
+    date: DateTime<Valid>;
+}
+
+export async function getDuties(root: HTMLElement): Promise<BasicNode[]> {
+    const basicNodes: BasicNode[] = [];
     const calEntries = root.querySelectorAll(
         "div.monthview > div.contents > #node-title > a",
     );
@@ -28,12 +34,20 @@ export async function getDuties(root: HTMLElement): Promise<number[]> {
         if (!e.parentNode.parentNode.parentNode.innerHTML.includes("Duty"))
             continue;
 
+        const dayid = e.parentNode.parentNode.parentNode.parentNode.parentNode.parentNode.id;
+        let eventDate = DateTime.fromFormat(dayid.slice(9), "yyyy-MM-dd-0") as DateTime<Valid>;
+
         const nodeId = +e.getAttribute("href")!.replace("/node/", "");
-        // const eventName = decodeURI(e.innerText);
-        nodeIds.push(nodeId);
+        const eventName = decodeURI(e.innerText);
+        const node: BasicNode = {
+            id: nodeId,
+            title: eventName,
+            date: eventDate
+        }
+        basicNodes.push(node);
     }
 
-    return nodeIds;
+    return basicNodes;
 }
 
 export async function getDutyDetails(root: HTMLElement, nodeId: number): Promise<NodeDetails> {
