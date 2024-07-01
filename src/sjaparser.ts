@@ -5,10 +5,32 @@ import { HTMLElement } from "node-html-parser";
 Settings.throwOnInvalid = true;
 Settings.defaultZone = "America/Vancouver";
 
+export enum Rank {
+    None = "",
+    Corporal = "Corporal",
+    Sergeant = "Sergeant",
+    StaffSergeant = "Staff Sergeant",
+    DivisionalOfficer = "Divisional Officer",
+    AreaOfficer = "Area Officer",
+    ProvincialOfficer = "Provincial Officer",
+    ProvincialCommissioner = "Provincial Commissioner",
+}
+
+export enum Qualification {
+    MA = "MA",
+    MFR = "MFR",
+}
+
+export type User = {
+    name: string;
+    rank: Rank;
+    qualification: Qualification;
+}
 
 export type Shift = {
     start_time: DateTime<Valid>;
     end_time: DateTime<Valid>;
+    users: User[];
 };
 
 export type NodeDetails = {
@@ -54,15 +76,28 @@ export async function getDutyDetails(root: HTMLElement, nodeId: number): Promise
     const dutyName = root.querySelector("#content-header > h1")?.text!;
 
     const shifts: Shift[] = root
-        .querySelectorAll("table > caption > a > .date-display-single")
+        .querySelectorAll(".view-shiftlist > .view-content > table")
         .map((shiftel) => {
-            const shift = shiftel.text.trim();
+            const shift = shiftel.querySelector("caption > a > .date-display-single")!.text.trim();
             const [, dateStr, startTimeStr, startTimeMeridiem, endTimeStr, endTimeMeridiem] = shift.match(
                 /\w+, (\w+ \d+, \d+) - (\d+:\d+)(\w{2}) - (\d+:\d+)(\w{2})/,
             )!;
+
+            const users: User[] = shiftel.querySelectorAll("tbody > tr").flatMap(uel => {
+                const udata = uel.querySelectorAll("td");
+                const name = udata[0].text.trim()
+                if (name)
+                    return [{
+                        name,
+                        rank: udata[1].text.trim() as Rank,
+                        qualification: udata[2].text.trim() as Qualification,
+                    }];
+                else return []
+            });
             return {
                 start_time: DateTime.fromFormat(`${dateStr}, ${startTimeStr} ${startTimeMeridiem.toUpperCase()}`, "DDD, t") as DateTime<Valid>,
                 end_time: DateTime.fromFormat(`${dateStr}, ${endTimeStr} ${endTimeMeridiem.toUpperCase()}`, "DDD, t") as DateTime<Valid>,
+                users,
             };
         });
 

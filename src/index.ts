@@ -37,6 +37,7 @@ function createIcs(nodes: NodeDetails[]): ICalCalendar {
         try {
             const shiftDetails = "= Shifts\n" + event.shifts.map(e => `
 == ${e.start_time.toFormat("T")} - ${e.end_time.toFormat("T")}
+${e.users.map(u => `${u.name} - ${u.rank ? u.rank : u.qualification}`).join("\n")}
             `.trim()).join("\n\n");
             const description = `
 ${shiftDetails}
