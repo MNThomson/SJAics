@@ -2,7 +2,11 @@ import { parse } from "node-html-parser";
 import ical, { ICalCalendar } from "ical-generator";
 
 import { BasicNode, NodeDetails, getDuties, getDutyDetails } from "./sjaparser";
-import { DateTime } from "luxon";
+import { DateTime, Settings } from "luxon";
+import { Valid } from "luxon/src/_util";
+
+Settings.throwOnInvalid = true;
+Settings.defaultZone = "America/Vancouver";
 
 export interface Env {
     R2: R2Bucket;
@@ -92,15 +96,12 @@ export default {
         console.log("***************************************************");
         ENV = env;
 
-        let nodes = await getCalNodeIds("");
+        const today = DateTime.now().startOf('day');
 
-        let nextMonth = new Date();
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-        nodes.push(...(await getCalNodeIds(nextMonth.toISOString().slice(0, 7))));
-
-        let thirdMonth = new Date()
-        thirdMonth.setMonth(thirdMonth.getMonth() + 2)
-        nodes.push(...(await getCalNodeIds(thirdMonth.toISOString().slice(0, 7))))
+        let nodes: BasicNode[] = [];
+        for (const d of [today, today.plus({ months: 1 }), today.plus({ months: 2 })]) {
+            nodes.push(...(await getCalNodeIds(d.toFormat("yyyy-MM"))));
+        }
 
         let events: NodeDetails[] = [];
         for (const node of nodes) {
