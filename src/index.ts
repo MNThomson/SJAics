@@ -3,7 +3,6 @@ import ical, { ICalCalendar } from "ical-generator";
 
 import { BasicNode, NodeDetails, getDuties, getDutyDetails } from "./sjaparser";
 import { DateTime, Settings } from "luxon";
-import { Valid } from "luxon/src/_util";
 
 Settings.throwOnInvalid = true;
 Settings.defaultZone = "America/Vancouver";
@@ -46,8 +45,9 @@ ${e.users.map(u => `${u.name} - ${u.rank ? u.rank : u.qualification}`).join("\n"
             const description = `
 ${shiftDetails}
             `.trim()
+            const numTitle = " [" + event.shifts.map(s => s.users.length).join("/") + "]";
             calendar.createEvent({
-                summary: event.title, // TODO: Add num signed up users to end
+                summary: event.title + numTitle,
                 start: event.meet_time,
                 end: event.shifts[event.shifts.length - 1].end_time,
                 url: `${ENV.URL}/node/${event.id}`,
