@@ -40,7 +40,7 @@ function createIcs(nodes: NodeDetails[]): ICalCalendar {
         try {
             const shiftDetails = "= Shifts\n" + event.shifts.map(e => `
 == ${e.start_time.toFormat("T")} - ${e.end_time.toFormat("T")}
-${e.users.map(u => `${u.name} - ${u.rank ? u.rank : u.qualification}`).join("\n")}
+${e.users.map(u => `${u.rank ? u.rank + (u.qualification.includes("Driver") ? " (Driver)" : "") : u.qualification}`).join("\n")}
             `.trim()).join("\n\n");
             const description = `
 ${shiftDetails}
@@ -82,7 +82,7 @@ export default {
                 return new Response(await dics?.text(), { headers: { "content-type": "text/calendar; charset=utf-8" } });
             case "/reindex":
                 await this.scheduled(null, env, null);
-                return new Response("Reindex succesful");
+                return new Response("Reindex successful");
             default:
                 return new Response("", { status: 404 })
         }
@@ -99,7 +99,7 @@ export default {
         const today = DateTime.now().startOf('day');
 
         let nodes: BasicNode[] = [];
-        for (const d of [today, today.plus({ months: 1 }), today.plus({ months: 2 })]) {
+        for (const d of [today, today.plus({ months: 1 }), today.plus({ months: 2 }), today.plus({ months: 3 })]) {
             nodes.push(...(await getCalNodeIds(d.toFormat("yyyy-MM"))));
         }
 
